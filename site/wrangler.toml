@@ -1,15 +1,8 @@
-name = "chokepoint-listen-test"
-main = "src/index.js"
+name = "chokepoint-monitor"
+pages_build_output_dir = "public"
 compatibility_date = "2026-11-01"
-workers_dev = false
 
 [[d1_databases]]
 binding = "DB"
 database_name = "chokepoint-monitor"
 database_id = "92d2d963-75c5-4dd2-aacf-1da4ea7baf10"
-
-[triggers]
-crons = ["*/10 * * * *"]
-
-[observability]
-enabled = true

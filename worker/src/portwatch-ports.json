@@ -1,0 +1,9 @@
+[
+  {"portid": "chokepoint6", "name": "Strait of Hormuz", "zones": ["hormuz"]},
+  {"portid": "chokepoint1", "name": "Suez Canal", "zones": ["suez-north", "suez-south"]},
+  {"portid": "chokepoint4", "name": "Bab el-Mandeb Strait", "zones": ["bab-el-mandeb"]},
+  {"portid": "chokepoint7", "name": "Cape of Good Hope", "zones": ["cape"]},
+  {"portid": "chokepoint2", "name": "Panama Canal", "zones": ["panama-atlantic", "panama-pacific"]},
+  {"portid": "chokepoint5", "name": "Malacca Strait", "zones": ["singapore"]},
+  {"portid": "chokepoint3", "name": "Bosporus Strait", "zones": ["bosphorus"]}
+]

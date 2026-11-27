@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How this works: Chokepoint Monitor</title>
+<meta name="description" content="The data sources, rules and limits behind Chokepoint Monitor.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div><h1>How this works</h1><p class="sub">The sources, the rules and the limits behind Chokepoint Monitor.</p></div>
+  <nav><a href="./">Dashboard</a><a href="https://github.com/billnye67/chokepoint-monitor">Code</a></nav>
+</header>
+<main>
+<section class="card prose">
+
+<h2>What it does</h2>
+<p>Every day this site pulls the newest ship counts for seven shipping chokepoints, compares each one with its own recent history, and logs anything that falls outside its normal range. Nothing is edited by hand. The page shows whatever the data and the rules below produce.</p>
+
+<h2>The two kinds of data</h2>
+<p><strong>Daily transits (the backbone).</strong> The number of ships that passed through each chokepoint on each day, from 1 January 2019. Source: International Monetary Fund, <a href="https://portwatch.imf.org/">PortWatch</a>. PortWatch estimates these counts from satellite ship-tracking signals and publishes them a few days behind, so the dashboard always states the date the data runs to. Recent days can be revised by PortWatch, so this site re-reads the last 30 days on every daily pull.</p>
+<p><strong>Live ship counts (the "right now" layer).</strong> A collector listens to the free <a href="https://aisstream.io/">aisstream.io</a> ship feed for 7 minutes every half hour and counts the distinct ships heard inside a box around each zone. In a one-hour test the feed was reliable in the Singapore Strait and off the Cape of Good Hope, thin at Panama, and silent in the other zones. Where it hears nothing the site says "no live coverage" and never shows a zero.</p>
+<p><strong>These two are never compared.</strong> One counts ships passing per day. The other counts ships present in a box during a short listen. They are labelled separately everywhere.</p>
+
+<h2>How "normal" is worked out</h2>
+<p>There are no hand-picked thresholds. Each chokepoint is judged only against its own past.</p>
+<ul>
+  <li><strong>Smoothing.</strong> Daily counts swing with the day of the week, so every test uses the 7-day average.</li>
+  <li><strong>Normal range.</strong> For any day, take that chokepoint's 7-day averages over one year, ending 30 days earlier. The normal range is the middle 95% of those values.</li>
+  <li><strong>Elevated.</strong> The 7-day average is outside the normal range.</li>
+  <li><strong>Abnormal.</strong> The gap to the range is bigger than the range itself, measured as a ratio. Example: if normal is 45 to 100 ships a day, the top is 2.2 times the bottom, so abnormal starts below 45 / 2.2 = 20 or above 100 x 2.2 = 222.</li>
+  <li><strong>Episodes.</strong> One odd day is not an anomaly. An episode opens after 7 days in a row outside the range and closes after 7 days in a row back inside it. An episode is marked abnormal if at least 7 of its days were at the abnormal level.</li>
+  <li><strong>Collecting baseline.</strong> If a series has fewer than 180 days of history behind it, no range is shown and it says "collecting baseline". The live feed is in this state now, because its history only started when the collector was switched on.</li>
+</ul>
+<p>The same rules run on three series per chokepoint: all ships, tankers, and cargo ships.</p>
+
+<h2>What happens during a long disruption</h2>
+<p>If a crisis were allowed straight into the baseline, it would quietly become "normal" within weeks. So days at the abnormal level are kept out of later baselines. That holds for up to one year. A level that has lasted a full year is then treated as the new normal, and the episode is closed with a note saying so. Elevated days are not kept out, so the range follows slow drift.</p>
+
+<h2>Rerouting pairs</h2>
+<p>Some routes are alternatives to each other. The site watches these pairs:</p>
+<ul>
+  <li>Suez Canal and the Cape of Good Hope</li>
+  <li>Bab el-Mandeb and the Cape of Good Hope</li>
+  <li>Strait of Hormuz and the bypass ports of Fujairah and Yanbu</li>
+</ul>
+<p>A rerouting signal is logged when the first route is in a below-normal episode at the same time as the alternative is in an above-normal episode, for at least 7 days. It uses the same ranges as everything else. PortWatch's chokepoint data has no series for Fujairah or Yanbu, so the Hormuz pair shows "no data yet" instead of a guess.</p>
+
+<h2>The anomaly log</h2>
+<p>Every episode is saved with the days it covers in the data and the date and time this system first raised it. Rows are never deleted. Episodes found when the seven years of history were first loaded are marked "history backfill". Episodes raised afterwards by the daily run are marked "daily check". The backfill used exactly the same rules, looking only at data that existed before each day.</p>
+
+<h2>A check on the biggest flag</h2>
+<p>The largest open anomaly is the Strait of Hormuz, where PortWatch shows transits falling from roughly 60 to 80 a day in early 2026 to a handful a day from March. Before putting that on the page it was checked against independent reporting: Lloyd's List figures reported by <a href="https://gulfbusiness.com/en/2026/trade/strait-of-hormuz-traffic-181-ships-march-70-percent-iranian/">Gulf Business</a> give 181 vessels for 1 to 30 March 2026 against about 138 a day before, and <a href="https://www.vortexa.com/insights/strait-of-hormuz">Vortexa</a> reports tanker transits falling from nearly 40 a day to a few. The direction and scale agree. The exact levels differ because each source counts ships in its own way.</p>
+
+<h2>Limits</h2>
+<ul>
+  <li><strong>The transit data is an estimate, and it is late.</strong> It comes from ship-tracking signals, runs several days behind, and misses ships that switch their transmitters off.</li>
+  <li><strong>The rules flag data glitches too.</strong> A fault in the source data looks the same as a real event. For example, late January 2020 shows a short spike at both the Cape of Good Hope and Panama on the same days, which is more likely a data artifact than real traffic. It stays in the log because the log is not edited.</li>
+  <li><strong>No seasonal adjustment.</strong> The range is one year wide, so it contains each season once, but a strong seasonal peak can still read as elevated.</li>
+  <li><strong>A flag is not an explanation.</strong> The site says traffic is outside its normal range. It does not say why.</li>
+  <li><strong>Malacca and Singapore.</strong> PortWatch counts the Malacca Strait as a whole. The live feed box covers only the Singapore Strait at its eastern end.</li>
+  <li><strong>Live coverage is patchy.</strong> The free feed depends on volunteer shore receivers. Most zones have none in range.</li>
+  <li><strong>Ship types fill in slowly.</strong> A ship's type arrives in a separate message, so new ships show as "not known yet" until the collector has heard it once.</li>
+  <li><strong>The schedule can slip.</strong> The collector runs on a free scheduled job that can start late or skip a run. Gaps are stored as gaps.</li>
+</ul>
+
+<h2>Not built yet</h2>
+<p>Satellite radar and vessel presence from Global Fishing Watch, fire detections from NASA FIRMS, military aircraft from adsb.lol, and anomaly rules for the live feed once it has enough history.</p>
+
+<h2>Credits</h2>
+<p>Source: International Monetary Fund, <a href="https://portwatch.imf.org/">PortWatch</a>. The 7-day averages, normal ranges, episodes and rerouting signals are this site's own calculations on that data and are not IMF figures. Live ship positions: <a href="https://aisstream.io/">aisstream.io</a>. Map outline: Natural Earth. This is an independent, non-commercial personal project by James Boger and is not affiliated with or endorsed by any of these providers.</p>
+</section>
+</main>
+</body>
+</html>

@@ -63,3 +63,18 @@ Next: hosting test, then build and deploy the collector.
 - Cloudflare Worker alone (free plan): one full 7-minute listen completed, 480 messages, but used 49 ms of processing against a stated free allowance of 10 ms. It worked once; it is over the stated limit, so it could be cut off at any time. Paid plan ($5 a month) would remove that risk.
 - Decision: GitHub Actions runs the collector, Cloudflare free stores it. No cost. Test worker and its table removed.
 - Known weak spots of GitHub's timer: starts can be late or skipped at busy times, and schedules pause after 60 days with no repo activity. The status page shows good runs in the last 24 hours so gaps are visible.
+
+## Done from the Roblox thread by mistake (2026-11-27 ~02:45 UTC), nothing committed
+- PortWatch history loaded: D1 table portwatch_daily, 20,181 rows (7 chokepoints x 2,883 days, 2019-01-01 to 2026-11-22). Loader: collector/portwatch.js; port list: worker/src/portwatch-ports.json; portwatch-history.sql gitignored.
+- Worker deployed with a daily PortWatch pull (last 30 days, in the 00:20 UTC cron) and POST /pull/portwatch (ingest secret). Tested: 182 rows, run saved with source portwatch. Status page shows PortWatch days and the date the data runs to.
+- anomalies table was empty; dropped and recreated with episode columns (started_day, ended_day, level, peak values, found_by). New table site_cache. See worker/schema.sql.
+- Not done: /export and /publish endpoints, analysis script, site, method page. GFW daily, FIRMS, adsb.lol not started.
+- Timer: no scheduled GitHub run had landed by 02:41 UTC (schedule on since 01:56). Watch stopped here; recheck from the main thread.
+
+## First version of the site live (2026-11-27 ~03:15 UTC)
+- Public link: https://chokepoint-monitor-cg3.pages.dev (Cloudflare Pages project chokepoint-monitor; site/ folder; functions /api/site and /api/live read D1).
+- analysis/build.js: rules + episodes + rerouting, publishes to D1 (site_cache, anomalies). 292 episodes logged as history backfill, 8 open. Runs after every collector run in collect.yml.
+- Rules chosen: 7-day average; normal = middle 95% of own past year ending 30 days earlier; abnormal = gap bigger than the range's own spread (ratio); episode opens after 7 days, closes after 7; abnormal days kept out of baseline for up to a year, then "new normal"; under 180 days = collecting baseline.
+- Result on data to 2026-11-22: Hormuz abnormal since 2026-03-03; Suez elevated (above), Cape elevated (below), Bosporus cargo elevated (below); others normal.
+- Not built: GFW layer, FIRMS, adsb.lol, live-feed anomaly rules, alerts outside the page (email etc.), Fujairah/Yanbu data for the Hormuz pair.
+- Open problem: GitHub's timer had not started a run by itself as of 03:15 UTC (schedule on since 01:56). Runs so far were started by hand.

@@ -3,3 +3,5 @@ node_modules/
 .wrangler/
 *.log
 coverage-*.json
+portwatch-history.sql
+site-preview.json

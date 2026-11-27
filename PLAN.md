@@ -90,3 +90,12 @@ Goal from James: for each anomaly, an evidence panel titled "what else changed" 
 - Panama water: Panama Canal Authority publishes Gatun Lake daily level CSV from 1965, current to 2026-11-25. Disclaimer says estimates for information only; no reuse terms found.
 - Prices: EIA daily Brent and Henry Hub spreadsheets, US government public domain, no key, Brent current to 2026-11-24. Shipping rates: no free source found that allows republishing (Baltic indices are licensed).
 - Timer: see below.
+
+## 2026-11-27 ~04:30 UTC: timer fix, evidence proof, brief draft 2
+- Timer: worker now has crons "5,35 * * * *" calling startCollector (GitHub workflow_dispatch). Needs secret GH_DISPATCH_TOKEN (fine-grained token, this repo only, Actions read and write). James adds it in Cloudflare himself. Until then each attempt logs a failed "dispatch" run. GitHub's own schedule removed from collect.yml.
+- Rule fix: once an episode is abnormal, all its days are kept out of later baselines. Hormuz normal range is now 52.5 to 110.8 (was 30 to 110.8 because the June rebound days had leaked into the baseline).
+- Source decisions from James: GDELT (no ACLED), UKMTO + US anti-shipping messages, US Treasury list, Open-Meteo + NOAA storms, Panama water levels with credit, EIA prices, FIRMS, GFW radar. Shipping rates in three tiers (fund prices as daily proxy, Drewry weekly, BLS + NY Fed monthly).
+- GDELT: the search API kept answering 429 from this PC. The daily event files (data.gdeltproject.org/events/YYYYMMDD.export.CSV.zip, about 6 MB each) work with no limit. Filter by place name AND country, or "Odessa, Texas" leaks in. Raw pull for both test cases: drafts/evidence-raw/ (25,522 rows).
+- UKMTO: data address found (sccd.royalnavy.mod.uk/api/ukmto/all) but it returns only the latest 80 incidents (from 2026-09-28), covers only the Indian Ocean and Gulf region, and their firewall blocked this PC after a few requests. Not usable as built. NGA anti-shipping API: 503 all night.
+- Shipping-rate terms: NY Fed terms allow copy and display with their credit line; BLS series works with no key (via api.bls.gov). Drewry WCI needs registration and login, all rights reserved, no reuse terms found. Fund prices: Stooq blocks scripts, Yahoo terms give no display right, Nasdaq terms page not found, Alpha Vantage terms page did not render. No allowed daily source confirmed.
+- Brief draft 2 in drafts/findings-brief.md (not published). Next: evidence panel for the two test cases.

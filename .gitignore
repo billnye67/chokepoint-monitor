@@ -6,3 +6,4 @@ coverage-*.json
 portwatch-history.sql
 site-preview.json
 preview/
+drafts/

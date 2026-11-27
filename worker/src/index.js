@@ -34,6 +34,28 @@ async function portwatchPull(env) {
   await env.DB.batch(stmts);
 }
 
+// GitHub's own timer never fired for this repo, so Cloudflare's timer starts the collector job instead.
+// Needs the secret GH_DISPATCH_TOKEN: a fine-grained GitHub token for this one repo with Actions read and write.
+// Every attempt is saved as a run with source "dispatch", so a failed start is visible on the status page.
+async function startCollector(env) {
+  const ts = new Date().toISOString();
+  let ok = 0, note = "";
+  if (!env.GH_DISPATCH_TOKEN) note = "GH_DISPATCH_TOKEN secret is not set";
+  else {
+    try {
+      const r = await fetch("https://api.github.com/repos/billnye67/chokepoint-monitor/actions/workflows/collect.yml/dispatches", {
+        method: "POST",
+        headers: { authorization: "Bearer " + env.GH_DISPATCH_TOKEN, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "chokepoint-monitor-timer", "content-type": "application/json" },
+        body: JSON.stringify({ ref: "main" }),
+      });
+      ok = r.status === 204 ? 1 : 0;
+      note = ok ? "collector job started" : ("GitHub answered " + r.status + ": " + (await r.text()).slice(0, 200));
+    } catch (e) { note = String(e && e.message || e).slice(0, 300); }
+  }
+  await env.DB.prepare("INSERT INTO runs (ts, source, ok, runner, note) VALUES (?,?,?,?,?)").bind(ts, "dispatch", ok, "cloudflare-cron", note).run();
+  return { ok, note };
+}
+
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
 
 function sameText(a, b) {
@@ -218,6 +240,10 @@ export default {
         if (!authed(request, env)) return json({ error: "not allowed" }, 401);
         await portwatchPull(env); return json({ pulled: true });
       }
+      if (pathname === "/start-collector" && request.method === "POST") {
+        if (!authed(request, env)) return json({ error: "not allowed" }, 401);
+        return json(await startCollector(env));
+      }
       if (pathname === "/export" && request.method === "GET") {
         if (!authed(request, env)) return json({ error: "not allowed" }, 401);
         return await exportData(env);
@@ -232,6 +258,8 @@ export default {
     return new Response("Chokepoint Monitor collector. The public site is not built yet.", { headers: { "content-type": "text/plain" } });
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([daily(env), portwatchPull(env)]));
+    // "20 0 * * *" is the daily job; every other trigger is the half-hourly collector start.
+    if (event.cron === "20 0 * * *") ctx.waitUntil(Promise.allSettled([daily(env), portwatchPull(env)]));
+    else ctx.waitUntil(startCollector(env));
   },
 };

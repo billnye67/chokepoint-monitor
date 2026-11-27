@@ -1,7 +1,6 @@
 name: collect ships
+# Started every 30 minutes by the Cloudflare worker's timer (GitHub's own schedule never fired for this repo).
 on:
-  schedule:
-    - cron: "7,37 * * * *"   # every 30 minutes
   workflow_dispatch:
 concurrency:
   group: collect

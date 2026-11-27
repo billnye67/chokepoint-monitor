@@ -8,9 +8,10 @@ binding = "DB"
 database_name = "chokepoint-monitor"
 database_id = "92d2d963-75c5-4dd2-aacf-1da4ea7baf10"
 
-# Daily at 00:20 UTC: build daily summaries, delete raw records older than 90 days.
+# Daily at 00:20 UTC: build daily summaries, pull PortWatch, delete raw records older than 90 days.
+# At 5 and 35 past every hour: start the collector job on GitHub.
 [triggers]
-crons = ["20 0 * * *"]
+crons = ["20 0 * * *", "5,35 * * * *"]
 
 [observability]
 enabled = true

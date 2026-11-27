@@ -71,10 +71,10 @@ Next: hosting test, then build and deploy the collector.
 - Not done: /export and /publish endpoints, analysis script, site, method page. GFW daily, FIRMS, adsb.lol not started.
 - Timer: no scheduled GitHub run had landed by 02:41 UTC (schedule on since 01:56). Watch stopped here; recheck from the main thread.
 
-## First version of the site live (2026-11-27 ~03:15 UTC)
+## First version of the site live (2026-11-27 ~03:00 UTC)
 - Public link: https://chokepoint-monitor-cg3.pages.dev (Cloudflare Pages project chokepoint-monitor; site/ folder; functions /api/site and /api/live read D1).
 - analysis/build.js: rules + episodes + rerouting, publishes to D1 (site_cache, anomalies). 292 episodes logged as history backfill, 8 open. Runs after every collector run in collect.yml.
 - Rules chosen: 7-day average; normal = middle 95% of own past year ending 30 days earlier; abnormal = gap bigger than the range's own spread (ratio); episode opens after 7 days, closes after 7; abnormal days kept out of baseline for up to a year, then "new normal"; under 180 days = collecting baseline.
 - Result on data to 2026-11-22: Hormuz abnormal since 2026-03-03; Suez elevated (above), Cape elevated (below), Bosporus cargo elevated (below); others normal.
 - Not built: GFW layer, FIRMS, adsb.lol, live-feed anomaly rules, alerts outside the page (email etc.), Fujairah/Yanbu data for the Hormuz pair.
-- Open problem: GitHub's timer had not started a run by itself as of 03:15 UTC (schedule on since 01:56). Runs so far were started by hand.
+- Open problem: GitHub's timer had not started a run by itself as of 03:00 UTC (schedule on since 01:56). Runs so far were started by hand.

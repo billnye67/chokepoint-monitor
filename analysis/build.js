@@ -54,10 +54,12 @@ function analyse(x) {
     for (let j = start; j <= d; j++) if (Math.sign(flag[j]) === dir) mark(j);
   };
   const mark = j => {
-    // Only abnormal days are kept out of later baselines, so a crisis does not quickly turn into "normal". Elevated days stay in, so the range follows slow drift.
+    // Once an episode is abnormal, all of its days are kept out of later baselines, so neither the crisis nor a partial
+    // rebound inside it can turn into "normal". Episodes that only reach elevated stay in, so the range follows slow drift.
     cur.lastFlag = j; cur.quiet = 0;
-    if (Math.abs(flag[j]) === 2) { excluded[j] = true; cur.abnDays++; }
-    if (cur.abnDays >= P.open_days) cur.level = 2;
+    if (Math.abs(flag[j]) === 2) cur.abnDays++;
+    if (cur.abnDays >= P.open_days && cur.level < 2) { cur.level = 2; for (let k = cur.start; k <= j; k++) excluded[k] = true; }
+    if (cur.level === 2) excluded[j] = true;
     if (cur.peak == null || (cur.dir < 0 ? s[j] < cur.peak : s[j] > cur.peak)) { cur.peak = s[j]; cur.peakDay = j; }
   };
   const close = (end, note) => { episodes.push({ ...cur, end, note: note || "" }); cur = null; };
@@ -80,10 +82,10 @@ function analyse(x) {
     if (cur) {
       if (f === cur.dir) { mark(d); cur.opp = null; }
       else {
-        cur.quiet++;
+        cur.quiet++; if (cur.level === 2) excluded[d] = true;
         if (f !== 0) cur.opp = cur.opp ? { ...cur.opp, count: cur.opp.count + 1 } : { start: d, count: 1 }; else cur.opp = null;
         if (cur.opp && cur.opp.count >= P.open_days) { const o = cur.opp; close(cur.lastFlag); open(f, o.start, d); }
-        else if (cur.quiet >= P.close_days) close(cur.lastFlag);
+        else if (cur.quiet >= P.close_days) { for (let k = cur.lastFlag + 1; k <= d; k++) excluded[k] = false; close(cur.lastFlag); }
       }
       if (cur && d - cur.start >= P.new_normal_days) {
         for (let j = cur.start; j <= d; j++) excluded[j] = false;

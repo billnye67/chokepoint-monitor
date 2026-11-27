@@ -11,28 +11,32 @@
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
   const num = v => v == null ? "" : (Math.round(v * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 });
   const STATE = { normal: "Normal", elevated: "Elevated", abnormal: "Abnormal", baseline: "Collecting baseline", "no-data": "No data yet" };
+  const COLOR = { normal: "var(--good)", elevated: "var(--warning)", abnormal: "var(--critical)", baseline: "var(--idle)", "no-data": "var(--idle)" };
   const METRIC = { total: "All ships", tanker: "Tankers", cargo: "Cargo ships", rerouting: "Rerouting" };
   const UNIT = { total: "ships", tanker: "tankers", cargo: "cargo ships" };
   const badge = state => `<span class="badge"><i class="mark ${state}"></i>${STATE[state] || state}</span>`;
-  const LABEL_AT = { hormuz: [16, -6, "start"], suez: [-16, 7, "end"], "bab-el-mandeb": [-16, 16, "end"], cape: [16, 7, "start"], panama: [16, 7, "start"], malacca: [-16, 7, "end"], bosporus: [-14, -10, "end"] };
+  const SHORT = n => n.replace(" Strait", "").replace("Strait of ", "");
+  // Label position per marker: [dx, dy, anchor] in map units, chosen so the crowded Middle East labels do not overlap.
+  const LABEL_AT = { hormuz: [1, -1, "start"], suez: [-1, 0, "end"], "bab-el-mandeb": [-1, 1, "end"], cape: [1, 0, "start"], panama: [1, 0, "start"], malacca: [-1, 0, "end"], bosporus: [-1, -1, "end"] };
   const LIVE_NOTE = { "panama-atlantic": "partial coverage", "panama-pacific": "partial coverage" };
 
-  let site = null, live = null, sel = { zone: null, metric: "total", range: "30" };
+  let site = null, live = null, sel = { zone: null, metric: "total", range: "90" };
 
   Promise.all([
     fetch("/api/site").then(r => { if (!r.ok) throw new Error("site data " + r.status); return r.json(); }),
     fetch("/api/live").then(r => r.ok ? r.json() : null).catch(() => null),
   ]).then(([s, l]) => { site = s; live = l; start(); })
-    .catch(e => { $("dataline").innerHTML = `<span class="warn">The data could not be loaded (${esc(e.message)}). Nothing is shown rather than showing old numbers.</span>`; });
+    .catch(e => { $("headline").textContent = "Data could not be loaded"; $("dataline").innerHTML = `<span class="warn">${esc(e.message)}. Nothing is shown rather than showing old numbers.</span>`; });
 
   function start() {
     sel.zone = (site.zones.find(z => z.state === "abnormal") || site.zones.find(z => z.state === "elevated") || site.zones[0]).id;
-    renderStatus(); renderOpen(); renderLog(); renderPairs(); renderMap(); renderZones(); renderChart();
+    renderStatus(); renderMap(); renderCards(); renderChart(); renderOpen(); renderPairs(); renderLog();
     for (const id of ["f-level", "f-zone", "f-metric"]) $(id).addEventListener("change", renderLog);
     seg("seg-metric", v => { sel.metric = v; renderChart(); });
     seg("seg-range", v => { sel.range = v; renderChart(); });
     $("tablewrap").addEventListener("toggle", renderTable);
-    window.addEventListener("resize", () => { clearTimeout(start.t); start.t = setTimeout(renderChart, 150); });
+    let lastW = window.innerWidth;
+    window.addEventListener("resize", () => { clearTimeout(start.t); start.t = setTimeout(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; renderMap(); renderChart(); } }, 150); });
   }
   function seg(id, fn) {
     $(id).addEventListener("click", e => {
@@ -42,49 +46,118 @@
     });
   }
   function setSeg(id, v) { for (const x of $(id).children) x.classList.toggle("on", x.dataset.v === v); }
-  function pick(zone, metric) {
-    sel.zone = zone; if (metric && METRIC[metric] && metric !== "rerouting") { sel.metric = metric; setSeg("seg-metric", metric); }
-    renderMap(); renderZones(); renderChart();
-    $("chartcard").scrollIntoView({ behavior: "smooth", block: "start" });
+  function pick(zone, metric, scroll) {
+    sel.zone = zone;
+    if (metric && UNIT[metric]) { sel.metric = metric; setSeg("seg-metric", metric); }
+    renderMap(); renderCards(); renderChart();
+    if (scroll !== false) $("chartcard").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   const zoneName = id => (site.zones.find(z => z.id === id) || {}).name || id;
-  const pairName = id => { const p = site.pairs.find(p => p.id === id); return p ? `${p.falls_names.join(" and ")} to ${p.rises_names.join(" and ")}` : id; };
+  const pairName = id => { const p = site.pairs.find(p => p.id === id); return p ? `${p.falls_names.map(SHORT).join(" and ")} to ${p.rises_names.map(SHORT).join(" and ")}` : id; };
+  // Which measure decides the chokepoint's state (all ships first, then tankers, then cargo).
+  const stateMetric = z => ["total", "tanker", "cargo"].find(m => z.status[m].state === z.state) || "total";
 
   function renderStatus() {
-    const age = daysBetween(site.data_to, new Date().toISOString().slice(0, 10));
-    let line = `Daily transit data runs to <strong>${fmtDay(site.data_to)}</strong> (IMF PortWatch publishes a few days behind). Status below is as of that date.`;
-    if (age > 12) line += ` <span class="warn">No new PortWatch data since ${fmtDay(site.data_to)}, ${age} days ago.</span>`;
-    $("dataline").innerHTML = line;
+    const age = daysBetween(site.data_to, new Date().toISOString().slice(0, 10)), c = site.counts;
     $("headline").textContent = site.status_line;
-    $("details").innerHTML = site.status_details.map(d => `<li>${esc(d)}</li>`).join("");
-    const c = site.counts;
-    $("tiles").innerHTML = ["abnormal", "elevated", "normal"].concat(c.baseline ? ["baseline"] : [])
-      .map(k => `<div class="tile"><b>${c[k]}</b><span><i class="mark ${k}"></i>${STATE[k]}</span></div>`).join("");
+    $("chips").innerHTML = ["abnormal", "elevated", "normal"].concat(c.baseline ? ["baseline"] : [])
+      .map(k => `<span class="chip"><i class="mark ${k}"></i><b>${c[k]}</b>${STATE[k]}</span>`).join("");
+    $("dataline").innerHTML = `Ships passing per day, 7-day average. Data to ${fmtDay(site.data_to)} (IMF PortWatch publishes a few days behind).` +
+      (age > 12 ? ` <span class="warn">No new data since ${fmtDay(site.data_to)}, ${age} days ago.</span>` : "");
     $("built").textContent = `Analysis last run ${fmtTime(site.built)}.`;
   }
 
-  function epText(e) {
-    if (e.metric === "rerouting") return { what: `Rerouting: ${pairName(e.zone)}`, more: e.detail };
-    const z = site.zones.find(z => z.id === e.zone), st = z && z.status[e.metric];
-    const days = daysBetween(e.started_day, e.ended_day || site.data_to) + 1;
-    const what = `${zoneName(e.zone)}: ${METRIC[e.metric].toLowerCase()} ${e.direction} normal`;
-    let more = `Since ${fmtDay(e.started_day)} (${days} days).`;
-    if (!e.ended_day && st) more += ` Now averaging ${num(st.value)} ${UNIT[e.metric]} a day against a normal range of ${num(st.lo)} to ${num(st.hi)}.`;
-    more += ` Furthest point: ${num(e.peak_value)} on ${fmtDay(e.peak_day)}, when normal was ${num(e.normal_low)} to ${num(e.normal_high)}.`;
-    return { what, more };
+  // ---- map ----
+  function renderMap() {
+    const M = window.MAP, phone = window.innerWidth < 700;
+    const xy = (lat, lon) => [(lon + 180) * M.k, (M.top - lat) * M.k];
+    // Desktop shows the Americas to East Asia. Phones show Europe, Africa and Asia, with Panama pinned to the left edge.
+    const view = phone ? { x: (-24 + 180) * M.k, y: (M.top - 57) * M.k, w: 152 * M.k, h: 106 * M.k } : { x: (-128 + 180) * M.k, y: (M.top - 68) * M.k, w: 282 * M.k, h: 122 * M.k };
+    const u = phone ? 1.25 : 1;            // size multiplier for marks and text
+    let h = `<defs><filter id="glow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="${5 * u}"/></filter></defs>`;
+    for (let lon = -180; lon <= 180; lon += 30) h += `<line x1="${(lon + 180) * M.k}" x2="${(lon + 180) * M.k}" y1="0" y2="${M.h}" stroke="rgba(255,255,255,.035)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    for (let lat = -30; lat <= 60; lat += 30) h += `<line x1="0" x2="${M.w}" y1="${(M.top - lat) * M.k}" y2="${(M.top - lat) * M.k}" stroke="rgba(255,255,255,${lat === 0 ? ".07" : ".035"})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    h += `<path d="${window.LAND_PATH}" fill="var(--land)" stroke="#223040" stroke-width=".4"/>`;
+    for (const b of site.bypass) { const [x, y] = xy(b.lat, b.lon); h += `<circle cx="${x}" cy="${y}" r="${2.2 * u}" fill="var(--sea)" stroke="var(--idle)" stroke-width="${1 * u}"><title>${esc(b.name)}: bypass port, no daily transit data in this version</title></circle>`; }
+    for (const z of site.zones) {
+      let [x, y] = xy(z.lat, z.lon); const on = z.id === sel.zone, c = COLOR[z.state];
+      let [sx, sy, anchor] = LABEL_AT[z.id] || [1, 0, "start"];
+      const edge = phone && x < view.x + 8;                 // off the phone map: pin to the left edge
+      if (edge) { x = view.x + 12 * u; y = (M.top + 22) * M.k; sx = 1; sy = 0; anchor = "start"; }   // parked in open Atlantic, clear of other labels
+      const r = 5 * u, lx = x + sx * (r + 9 * u), ly = y + (sy < 0 ? -9 * u : sy > 0 ? 10 * u : -1 * u);
+      const mark = z.state === "abnormal" ? `<rect x="${x - r}" y="${y - r}" width="${2 * r}" height="${2 * r}" transform="rotate(45 ${x} ${y})" fill="${c}" stroke="#05070a" stroke-width="${1.2 * u}"/>`
+        : z.state === "elevated" ? `<path d="M${x} ${y - r * 1.35}L${x + r * 1.25} ${y + r * .9}L${x - r * 1.25} ${y + r * .9}Z" fill="${c}" stroke="#05070a" stroke-width="${1.2 * u}" stroke-linejoin="round"/>`
+        : `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="#05070a" stroke-width="${1.2 * u}"/>`;
+      h += `<g class="mk" data-z="${z.id}" tabindex="0" role="button" aria-label="${esc(z.name)}: ${STATE[z.state]}, ${num(z.status.total.value)} ships a day">
+        <circle cx="${x}" cy="${y}" r="${r * 2.4}" fill="${c}" opacity=".5" filter="url(#glow)"/>
+        ${z.state !== "normal" ? `<circle class="halo" cx="${x}" cy="${y}" r="${r * 1.9}" fill="none" stroke="${c}" stroke-width="${1.2 * u}"/>` : ""}
+        ${on ? `<circle class="ring" cx="${x}" cy="${y}" r="${r * 2.5}" fill="none" stroke="var(--text)" stroke-width="${1 * u}"/>` : ""}
+        ${mark}
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-size="${9.5 * u}" font-weight="600" fill="var(--text)" paint-order="stroke" stroke="#05070a" stroke-width="${3 * u}" stroke-linejoin="round">${edge ? "&#9664; " : ""}${esc(SHORT(z.name))}</text>
+        <text x="${lx}" y="${ly + 10.5 * u}" text-anchor="${anchor}" font-size="${9 * u}" fill="var(--text-2)" paint-order="stroke" stroke="#05070a" stroke-width="${3 * u}" stroke-linejoin="round"><tspan fill="var(--text)" font-weight="700">${num(z.status.total.value)}</tspan> ships/day</text>
+        <circle cx="${x}" cy="${y}" r="${r * 3.2}" fill="transparent"><title>${esc(z.name)}: ${STATE[z.state]}</title></circle></g>`;
+    }
+    const svg = $("map"); svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`); svg.innerHTML = h;
+    svg.onclick = e => { const g = e.target.closest(".mk"); if (g) pick(g.dataset.z); };
+    svg.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { const g = e.target.closest(".mk"); if (g) { e.preventDefault(); pick(g.dataset.z); } } };
+    $("maplegend").innerHTML = ["normal", "elevated", "abnormal"].map(s => `<span><i class="mark ${s}"></i>${STATE[s]}</span>`).join("") + `<span><i class="mark baseline"></i>Bypass port, no data yet</span>`;
   }
+
+  // ---- cards ----
+  function avg7(x) { return x.map((_, i) => { if (i < 6) return null; let t = 0; for (let j = i - 6; j <= i; j++) t += x[j]; return t / 7; }); }
+  function spark(z, color) {
+    const x = z.total, n = x.length, a = avg7(x), N = 90, from = n - N, W = 140, H = 34, band = z.band.total;
+    let max = 0, min = Infinity;
+    for (let i = from; i < n; i++) { const lo = band.lo[i - z.band_from], hi = band.hi[i - z.band_from]; max = Math.max(max, a[i], hi ?? 0); min = Math.min(min, a[i], lo ?? Infinity); }
+    const pad = (max - min) * .12 || 1; min = Math.max(0, min - pad); max += pad;
+    const X = i => (i - from) / (N - 1) * W, Y = v => H - 1.5 - (v - min) / (max - min) * (H - 3);
+    let up = "", down = "", line = "";
+    for (let i = from; i < n; i++) {
+      const lo = band.lo[i - z.band_from], hi = band.hi[i - z.band_from];
+      if (lo != null) { up += `${up ? "L" : "M"}${X(i).toFixed(1)} ${Y(hi).toFixed(1)}`; down = `L${X(i).toFixed(1)} ${Y(lo).toFixed(1)}` + down; }
+      line += `${line ? "L" : "M"}${X(i).toFixed(1)} ${Y(a[i]).toFixed(1)}`;
+    }
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${up ? `<path d="${up}${down}Z" fill="var(--band)"/>` : ""}<path d="${line}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+  }
+  function renderCards() {
+    $("cards").innerHTML = site.zones.map(z => {
+      const st = z.status.total, m = stateMetric(z), c = COLOR[z.state];
+      const from = z.state !== "normal" && m !== "total" ? ` <small>from ${METRIC[m].toLowerCase()}</small>` : "";
+      return `<button class="zcard${z.id === sel.zone ? " sel" : ""}" data-z="${z.id}" style="--c:${c}" aria-pressed="${z.id === sel.zone}">
+        <div class="nm">${esc(z.name)}</div>
+        <div class="val">${num(st.value)}</div><div class="unit">ships a day</div>
+        <div class="rng">${st.lo == null ? "Collecting baseline" : `Normal ${num(st.lo)} to ${num(st.hi)}`}</div>
+        ${spark(z, z.state === "normal" ? "var(--series)" : c)}
+        <div class="st"><i class="mark ${z.state}"></i>${STATE[z.state]}${from}</div></button>`;
+    }).join("");
+    $("cards").onclick = e => { const b = e.target.closest(".zcard"); if (b) pick(b.dataset.z); };
+  }
+
+  // ---- anomalies, pairs, log ----
   function renderOpen() {
     const rank = { abnormal: 0, elevated: 1 };
     const open = site.episodes.filter(e => !e.ended_day).sort((a, b) => rank[a.level] - rank[b.level] || (a.started_day < b.started_day ? -1 : 1));
+    $("opencount").textContent = open.length;
     $("open").innerHTML = open.length ? open.map((e, i) => {
-      const t = epText(e);
-      return `<div class="ep" data-i="${i}">${badge(e.level)}<div class="what">${esc(t.what)}</div>
-        <div class="more">${esc(t.more)}</div>
-        <div class="logged">First logged by this system ${fmtTime(e.flagged_at)} (${esc(e.found_by)}).</div></div>`;
-    }).join("") : `<p class="none">No open anomalies. Every chokepoint is inside its normal range as of ${fmtDay(site.data_to)}.</p>`;
-    $("open").onclick = ev => { const el = ev.target.closest(".ep"); if (!el) return; const e = open[+el.dataset.i]; if (e.metric === "rerouting") { const p = site.pairs.find(p => p.id === e.zone); pick(p.falls[0], "total"); } else pick(e.zone, e.metric); };
+      if (e.metric === "rerouting") return `<div class="ep" data-i="${i}">${badge(e.level)}<div class="what">Rerouting: ${esc(pairName(e.zone))}</div><div class="now">since ${fmtDay(e.started_day)}</div><div class="more">${esc(e.detail)}</div></div>`;
+      const z = site.zones.find(z => z.id === e.zone), st = z.status[e.metric], days = daysBetween(e.started_day, site.data_to) + 1;
+      const closing = e.inside_days > 0 ? ` Back inside the range for ${e.inside_days} of the 7 days needed to close.` : "";
+      return `<div class="ep" data-i="${i}">${badge(e.level)}
+        <div class="what">${esc(SHORT(z.name))}: ${METRIC[e.metric].toLowerCase()} ${e.direction} normal</div>
+        <div class="now">${num(st.value)} <span style="color:var(--muted)">vs ${num(st.lo)} to ${num(st.hi)}</span></div>
+        <div class="more">${days} days, since ${fmtDay(e.started_day)}.${closing} Furthest: ${num(e.peak_value)} on ${fmtDay(e.peak_day)}. Logged ${fmtTime(e.flagged_at)} (${esc(e.found_by)}).</div></div>`;
+    }).join("") : `<p class="none">None. Every chokepoint is inside its normal range as of ${fmtDay(site.data_to)}.</p>`;
+    $("open").onclick = ev => { const el = ev.target.closest(".ep"); if (!el) return; const e = open[+el.dataset.i]; if (e.metric === "rerouting") pick(site.pairs.find(p => p.id === e.zone).falls[0], "total"); else pick(e.zone, e.metric); };
   }
-
+  function renderPairs() {
+    $("pairs").innerHTML = site.pairs.map(p => {
+      const title = `${esc(p.falls_names.map(SHORT).join(" and "))} &rarr; ${esc(p.rises_names.map(SHORT).join(" and "))}`;
+      const body = p.state === "no-data" ? `No daily series for ${esc(p.rises_names.join(" or "))} yet.`
+        : p.state === "normal" ? `No signal as of ${fmtDay(site.data_to)}. ${p.episodes} past in the log.`
+        : `Active since ${fmtDay(p.since)}.`;
+      return `<div class="pair"><h3>${title}</h3>${badge(p.state)}<p>${body}</p></div>`;
+    }).join("");
+  }
   function renderLog() {
     const fz = $("f-zone");
     if (fz.options.length === 1) {
@@ -101,51 +174,9 @@
         <td>${fmtTime(e.flagged_at)}<small>${esc(e.found_by)}</small></td></tr>`).join("") || `<tr><td colspan="9">No episodes match.</td></tr>`);
   }
 
-  function renderPairs() {
-    $("pairs").innerHTML = site.pairs.map(p => {
-      let body;
-      if (p.state === "no-data") body = `<p>${badge("no-data")}</p><p>PortWatch has no daily series for ${esc(p.rises_names.join(" or "))}, so this pair cannot be checked yet.</p>`;
-      else if (p.state === "normal") body = `<p>${badge("normal")}</p><p>No rerouting signal as of ${fmtDay(site.data_to)}. ${p.episodes} past ${p.episodes === 1 ? "episode" : "episodes"} in the log.</p>`;
-      else body = `<p>${badge(p.state)}</p><p>${esc(p.falls_names.join(" and "))} below normal while ${esc(p.rises_names.join(" and "))} above normal, since ${fmtDay(p.since)}.</p>`;
-      return `<div class="pair"><h3>${esc(p.falls_names.join(" and "))} &rarr; ${esc(p.rises_names.join(" and "))}</h3>${body}</div>`;
-    }).join("");
-  }
-
-  function renderMap() {
-    const M = window.MAP, xy = (lat, lon) => [(lon + 180) * M.k, (M.top - lat) * M.k];
-    const col = { normal: "var(--good)", elevated: "var(--warning)", abnormal: "var(--critical)", baseline: "var(--idle)" };
-    let h = `<path d="${window.LAND_PATH}" fill="var(--land)"/>`;
-    for (const b of site.bypass) { const [x, y] = xy(b.lat, b.lon); h += `<circle cx="${x}" cy="${y}" r="4.5" fill="none" stroke="var(--idle)" stroke-width="1.6"><title>${esc(b.name)}: bypass port, no daily transit data in this version</title></circle>`; }
-    for (const z of site.zones) {
-      const [x, y] = xy(z.lat, z.lon), on = z.id === sel.zone, [dx, dy, anchor] = LABEL_AT[z.id] || [10, 4, "start"];
-      h += `<g class="mk" data-z="${z.id}" style="cursor:pointer" tabindex="0" role="button" aria-label="${esc(z.name)}: ${STATE[z.state]}">
-        ${on ? `<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="var(--text)" stroke-width="1.6"/>` : ""}
-        ${z.state === "abnormal" ? `<rect x="${x - 8}" y="${y - 8}" width="16" height="16" transform="rotate(45 ${x} ${y})" fill="${col[z.state]}" stroke="var(--bg)" stroke-width="2"/>`
-        : z.state === "elevated" ? `<path d="M${x} ${y - 11}L${x + 10} ${y + 7}L${x - 10} ${y + 7}Z" fill="${col[z.state]}" stroke="var(--bg)" stroke-width="2"/>`
-        : `<circle cx="${x}" cy="${y}" r="8" fill="${col[z.state]}" stroke="var(--bg)" stroke-width="2.5"/>`}
-        <text x="${x + dx}" y="${y + dy}" text-anchor="${anchor}" font-size="19" fill="var(--text)" paint-order="stroke" stroke="var(--bg)" stroke-width="5">${esc(z.name.replace(" Strait", "").replace("Strait of ", ""))}</text>
-        <circle cx="${x}" cy="${y}" r="22" fill="transparent"><title>${esc(z.name)}: ${STATE[z.state]}</title></circle></g>`;
-    }
-    const svg = $("map"); svg.setAttribute("viewBox", "150 50 770 300"); svg.innerHTML = h;
-    svg.onclick = e => { const g = e.target.closest(".mk"); if (g) pick(g.dataset.z); };
-    svg.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { const g = e.target.closest(".mk"); if (g) { e.preventDefault(); pick(g.dataset.z); } } };
-    $("maplegend").innerHTML = ["normal", "elevated", "abnormal"].map(s => `<span>${badge(s)}</span>`).join("") + `<span><i class="mark baseline"></i> Bypass port, no transit data yet</span>`;
-  }
-
-  function liveFor(z) { return live && live.zones ? live.zones.filter(l => z.live_zones.includes(l.zone)) : []; }
-  function renderZones() {
-    $("zones").innerHTML = `<tr><th>Chokepoint</th><th>State</th><th class="num">Ships a day<small>7-day average</small></th><th class="num">Normal range</th><th class="num">A year ago</th></tr>` +
-      site.zones.map(z => { const st = z.status.total; return `<tr class="row${z.id === sel.zone ? " sel" : ""}" data-z="${z.id}" tabindex="0">
-        <td>${esc(z.name)}</td><td>${badge(z.state)}${z.state !== st.state ? `<small>from ${Object.keys(z.status).filter(m => z.status[m].state === z.state).map(m => METRIC[m].toLowerCase()).join(", ")}</small>` : ""}</td><td class="num">${num(st.value)}</td>
-        <td class="num">${st.lo == null ? "" : num(st.lo) + " to " + num(st.hi)}</td><td class="num">${num(st.year_ago)}</td></tr>`; }).join("");
-    $("zones").onclick = e => { const r = e.target.closest("tr.row"); if (r) pick(r.dataset.z); };
-    $("zones").onkeydown = e => { if (e.key === "Enter") { const r = e.target.closest("tr.row"); if (r) pick(r.dataset.z); } };
-  }
-
   // ---- chart ----
   function series() {
-    const z = site.zones.find(z => z.id === sel.zone), x = z[sel.metric], n = x.length;
-    const avg = x.map((_, i) => { if (i < 6) return null; let t = 0; for (let j = i - 6; j <= i; j++) t += x[j]; return t / 7; });
+    const z = site.zones.find(z => z.id === sel.zone), x = z[sel.metric], n = x.length, avg = avg7(x);
     const count = sel.range === "all" ? n : Math.min(n, +sel.range), from = n - count;
     const band = z.band[sel.metric], hasBand = sel.range !== "all" && from >= z.band_from;
     const lo = i => hasBand ? band.lo[i - z.band_from] : null, hi = i => hasBand ? band.hi[i - z.band_from] : null;
@@ -154,11 +185,11 @@
   function renderChart() {
     const S = series(), { z, x, avg, n, from, count } = S, all = sel.range === "all";
     const st = z.status[sel.metric];
-    $("charttitle").textContent = `${z.name}: ${METRIC[sel.metric].toLowerCase()} passing per day`;
-    $("chartnote").innerHTML = `${badge(st.state)} &nbsp; Latest 7-day average ${num(st.value)} ${UNIT[sel.metric]} a day` +
-      (st.lo == null ? "." : `, normal range ${num(st.lo)} to ${num(st.hi)}.`) + ` Data to ${fmtDay(z.end)}. Source: IMF PortWatch.` +
-      (z.id === "malacca" ? " PortWatch counts the Malacca Strait as a whole." : "");
-    const svg = $("chart"), W = Math.max(320, svg.parentNode.clientWidth), H = W < 560 ? 260 : 340, m = { l: 44, r: 14, t: 14, b: 28 };
+    $("charttitle").textContent = `${z.name}: ${METRIC[sel.metric].toLowerCase()} per day`;
+    $("chartnote").innerHTML = `${badge(st.state)}<span>Now <b style="color:var(--text)">${num(st.value)}</b></span>` +
+      (st.lo == null ? "" : `<span>Normal ${num(st.lo)} to ${num(st.hi)}</span>`) + (st.year_ago == null ? "" : `<span>A year ago ${num(st.year_ago)}</span>`) +
+      `<span>Data to ${fmtDay(z.end)}, IMF PortWatch</span>`;
+    const svg = $("chart"), W = Math.max(300, svg.parentNode.clientWidth), H = W < 560 ? 250 : 360, m = { l: W < 560 ? 36 : 44, r: 12, t: 16, b: 28 };
     const pw = W - m.l - m.r, ph = H - m.t - m.b;
     let ymax = 0;
     for (let i = from; i < n; i++) ymax = Math.max(ymax, all ? (avg[i] || 0) : x[i], avg[i] || 0, S.hi(i) || 0);
@@ -166,25 +197,24 @@
     const X = i => m.l + (count === 1 ? 0 : (i - from) / (count - 1) * pw), Y = v => m.t + ph - v / ymax * ph;
     let h = "";
     for (let v = 0; v <= ymax + 1e-9; v += step) h += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v.toLocaleString("en-US")}</text>`;
-    // x ticks
-    const ticks = [];
+    const ticks = [], narrow = W < 560;
     for (let i = from; i < n; i++) {
       const d = dayAt(z.start, i), [yy, mm, dd] = d.split("-");
-      if (all ? (mm === "01" && dd === "01") : sel.range === "365" ? (dd === "01" && (+mm % 2 === 1)) : sel.range === "90" ? (dd === "01" || dd === "15") : ((n - 1 - i) % 7 === 0)) ticks.push([i, all ? yy : sel.range === "365" ? `${MONTHS[mm - 1]} ${yy.slice(2)}` : fmtShort(d)]);
+      const hit = all ? (mm === "01" && dd === "01" && (!narrow || +yy % 2 === 1)) : sel.range === "365" ? (dd === "01" && (+mm % (narrow ? 3 : 2) === 1)) : sel.range === "90" ? (dd === "01" || (!narrow && dd === "15")) : ((n - 1 - i) % (narrow ? 14 : 7) === 0);
+      if (hit) ticks.push([i, all ? yy : sel.range === "365" ? `${MONTHS[mm - 1]} ${yy.slice(2)}` : fmtShort(d)]);
     }
-    for (const [i, label] of ticks) h += `<text x="${X(i)}" y="${H - 8}" text-anchor="${i === n - 1 ? "end" : "middle"}" font-size="12" fill="var(--muted)">${label}</text>`;
-    // normal range band
+    for (const [i, label] of ticks) h += `<text x="${X(i)}" y="${H - 8}" text-anchor="${X(i) > W - 40 ? "end" : "middle"}" font-size="12" fill="var(--muted)">${label}</text>`;
     if (S.hasBand) {
       let up = "", down = "";
       for (let i = from; i < n; i++) { if (S.lo(i) == null) continue; up += `${up ? "L" : "M"}${X(i).toFixed(1)} ${Y(S.hi(i)).toFixed(1)}`; down = `L${X(i).toFixed(1)} ${Y(S.lo(i)).toFixed(1)}` + down; }
       if (up) h += `<path d="${up}${down}Z" fill="var(--band)"/>`;
     }
-    // episodes of this zone and measure, as a strip along the top
     const eps = site.episodes.filter(e => e.zone === z.id && e.metric === sel.metric);
+    let shown = 0;
     for (const e of eps) {
       const a = Math.max(from, daysBetween(z.start, e.started_day)), b = Math.min(n - 1, daysBetween(z.start, e.ended_day || z.end));
-      if (b < from || a > n - 1) continue;
-      h += `<rect x="${X(a)}" y="${m.t - 8}" width="${Math.max(2, X(b) - X(a))}" height="4" rx="2" fill="${e.level === "abnormal" ? "var(--critical)" : "var(--warning)"}"><title>${STATE[e.level]}: ${e.direction} normal, ${fmtDay(e.started_day)} to ${e.ended_day ? fmtDay(e.ended_day) : "now"}</title></rect>`;
+      if (b < from || a > n - 1) continue; shown++;
+      h += `<rect x="${X(a)}" y="${m.t - 9}" width="${Math.max(2, X(b) - X(a))}" height="4" rx="2" fill="${e.level === "abnormal" ? "var(--critical)" : "var(--warning)"}"><title>${STATE[e.level]}: ${e.direction} normal, ${fmtDay(e.started_day)} to ${e.ended_day ? fmtDay(e.ended_day) : "now"}</title></rect>`;
     }
     if (!all) for (let i = from; i < n; i++) h += `<circle cx="${X(i).toFixed(1)}" cy="${Y(x[i]).toFixed(1)}" r="${count > 120 ? 1.3 : 2.2}" fill="var(--daily)"/>`;
     let line = "";
@@ -204,15 +234,15 @@
         (S.lo(i) != null ? `<div><span>Normal range</span><span>${num(S.lo(i))} to ${num(S.hi(i))}</span></div>` : "");
       tip.hidden = false;
       const left = X(i) * (r.width / W);
-      tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left + (left > r.width * 0.6 ? -tip.offsetWidth - 12 : 12))) + "px"; tip.style.top = "18px";
+      tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left + (left > r.width * 0.6 ? -tip.offsetWidth - 12 : 12))) + "px"; tip.style.top = "22px";
     };
     const out = () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
     svg.onmousemove = move; svg.ontouchstart = move; svg.ontouchmove = move; svg.onmouseleave = out; svg.ontouchend = out;
 
-    $("chartlegend").innerHTML = `<span><i class="lg-line"></i>7-day average</span>` + (all ? "" : `<span><i class="lg-dot"></i>Each day's count</span>`) +
-      (S.hasBand ? `<span><i class="lg-band"></i>Normal range (middle 95% of the zone's own past year)</span>` : "") +
-      (eps.length ? `<span><i class="lg-ep" style="background:var(--warning)"></i>Elevated episode</span><span><i class="lg-ep" style="background:var(--critical)"></i>Abnormal episode</span>` : "") +
-      (all ? `<span>Pick 1 year or less to see the normal range.</span>` : "");
+    $("chartlegend").innerHTML = `<span><i class="lg-line"></i>7-day average</span>` + (all ? "" : `<span><i class="lg-dot"></i>Each day</span>`) +
+      (S.hasBand ? `<span><i class="lg-band"></i>Normal range</span>` : "") +
+      (shown ? `<span><i class="lg-ep" style="background:var(--warning)"></i>Elevated episode</span><span><i class="lg-ep" style="background:var(--critical)"></i>Abnormal episode</span>` : "") +
+      (all ? `<span>Normal range shows at 1y or less.</span>` : "");
     renderTable(); renderLive();
   }
   function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw || 1))), f = (raw || 1) / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
@@ -226,17 +256,17 @@
 
   function renderLive() {
     const z = site.zones.find(z => z.id === sel.zone), box = $("live"), names = Object.fromEntries(site.live_zones.map(l => [l.id, l.name]));
-    const mine = liveFor(z);
-    let h = `<h3>Live feed (aisstream.io)</h3>`;
-    if (!live) h += `<p>The live feed status could not be loaded.</p>`;
-    else if (!mine.length) h += `<p>No live coverage here. The free live feed has not sent any ship messages from this area, so this site shows no live count for it.</p>`;
+    const mine = live && live.zones ? live.zones.filter(l => z.live_zones.includes(l.zone)) : [];
+    let h = "";
+    if (!live) h = `<div class="lv"><span class="tag">Live feed</span><span>Status could not be loaded.</span></div>`;
+    else if (!mine.length) h = `<div class="lv"><span class="tag">Live feed</span><span>No live coverage here. The free feed has sent no ship messages from this area.</span></div>`;
     else {
       for (const l of mine) {
-        const mins = Math.round((Date.now() - Date.parse(l.ts)) / 60000), stale = mins > 180;
-        h += stale ? `<p><strong>${esc(names[l.zone] || l.zone)}:</strong> no live data since ${fmtTime(l.ts)}.</p>`
-          : `<p><strong>${esc(names[l.zone] || l.zone)}${LIVE_NOTE[l.zone] ? " (" + LIVE_NOTE[l.zone] + ")" : ""}:</strong> ${l.vessels} ships heard in the zone during a 7-minute listen ending ${fmtTime(l.ts)}. ${l.moving} moving, ${l.stopped} stopped or at anchor. By type: ${l.tanker} tankers, ${l.cargo} cargo, ${l.other} other, ${l.unknown} not known yet.</p>`;
+        const stale = Date.now() - Date.parse(l.ts) > 3 * 3600000, name = esc(names[l.zone] || l.zone) + (LIVE_NOTE[l.zone] ? ` (${LIVE_NOTE[l.zone]})` : "");
+        h += stale ? `<div class="lv"><span class="tag">Live feed</span><span>${name}: no live data since ${fmtTime(l.ts)}.</span></div>`
+          : `<div class="lv"><span class="tag">Live feed</span><span>${name}</span><span><b>${l.vessels}</b> ships in the zone</span><span>${l.moving} moving, ${l.stopped} stopped</span><span>${l.tanker} tankers, ${l.cargo} cargo, ${l.other} other, ${l.unknown} type not known yet</span><span>${fmtTime(l.ts)}</span></div>`;
       }
-      h += `<p>This counts ships present in a box right now. It is a different measure from the daily transits charted above, and the two should not be compared. Normal range for the live feed: collecting baseline since ${fmtDay(live.first_run.slice(0, 10))} (${live.days} ${live.days === 1 ? "day" : "days"} so far).</p>`;
+      h += `<p>Ships present during a 7-minute listen (aisstream.io). A different measure from the daily transits above; do not compare them. Collecting baseline since ${fmtDay(live.first_run.slice(0, 10))}.</p>`;
     }
     box.innerHTML = h;
   }

@@ -99,3 +99,10 @@ Goal from James: for each anomaly, an evidence panel titled "what else changed" 
 - UKMTO: data address found (sccd.royalnavy.mod.uk/api/ukmto/all) but it returns only the latest 80 incidents (from 2026-09-28), covers only the Indian Ocean and Gulf region, and their firewall blocked this PC after a few requests. Not usable as built. NGA anti-shipping API: 503 all night.
 - Shipping-rate terms: NY Fed terms allow copy and display with their credit line; BLS series works with no key (via api.bls.gov). Drewry WCI needs registration and login, all rights reserved, no reuse terms found. Fund prices: Stooq blocks scripts, Yahoo terms give no display right, Nasdaq terms page not found, Alpha Vantage terms page did not render. No allowed daily source confirmed.
 - Brief draft 2 in drafts/findings-brief.md (not published). Next: evidence panel for the two test cases.
+
+## Timer confirmed (2026-11-27 06:12 UTC)
+- GH_DISPATCH_TOKEN set on the Worker at 05:41 UTC. First unattended run: Cloudflare timer fired 06:05:32, GitHub job saved at 06:12:41 (549 messages; singapore 238 ships, cape 67), analysis republished at 06:12:42. Collector now runs every 30 minutes with no one starting it.
+- Token expiry: when it expires the collector stops; the status page will show failed "dispatch" runs.
+- Evidence panel live for two cases (hormuz-june-rebound, bosporus-decline), built by hand with analysis/evidence.js; not on the timer.
+- Brief draft 3 in drafts/, unpublished, waiting on James's read. Corrected Black Sea conflict counts: Jun 342, Jul 1227, Aug 1146, Sep 876, Oct 711, Nov (to 22nd) 424.
+- Still down: US anti-shipping (NGA ASAM) server, 503 all night.

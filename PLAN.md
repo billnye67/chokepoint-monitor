@@ -40,9 +40,20 @@ Proposed: live layer on for singapore and cape; panama marked thin; the rest mar
 Next: hosting test for the collector, then build and deploy it.
 
 ## Global Fishing Watch check (2026-11-26)
-Key saved in `.dev.vars` as `GFW_API_KEY` (expires 2036). Script: `collector/gfw-test.js`. Result file: `coverage-gfw-2026-11-26.json`.
+Key saved in `.dev.vars` as `GFW_API_KEY` (expires 2036). Script: `collector/gfw-test.js`. Result file: `coverage-gfw-2026-11-27.json`.
 - AIS presence (`public-global-presence`): data on all 30 of the last 30 days in all 11 zones, including the 7 where aisstream saw nothing. Runs to 2026-11-22 (about 4 days behind). Rows are one vessel per day with hours, name, flag and type, so distinct vessels per day can be counted.
 - SAR radar (`public-global-sar-presence`): runs to 2026-11-21/23. Satellite passes are not daily. Days with a pass out of 30: hormuz 19, suez-south 15, fujairah 15, suez-north 14, bosphorus 10, bab-el-mandeb 9, singapore 7, cape 7, yanbu 5, panama 3 each.
 - Radar detections not matched to AIS, 30 days (unmatched / all): hormuz 2303/3166, fujairah 1369/2853, suez-south 305/896, suez-north 167/858, cape 134/332, bosphorus 133/449, singapore 119/1718, bab-el-mandeb 40/129, yanbu 37/39, panama-pacific 35/238, panama-atlantic 7/194.
 - Decision proposed: GFW AIS presence = the "ships present" layer for every zone (4 days behind, labelled). SAR unmatched shown per pass day, never as a daily series, off for Panama and Yanbu (too few passes). Not yet checked: what share of unmatched detections are small boats.
 Next: hosting test, then build and deploy the collector.
+
+## Phase 1 collector deployed (2026-11-27 01:35 UTC)
+- Storage: Cloudflare Worker `chokepoint-monitor` + D1 database `chokepoint-monitor` (free plan). Tables: runs, measurements (raw, 90 days), ship_types, daily (forever), anomalies (every flag with date and time, never deleted; filled in Phase 3).
+- Worker: POST /ingest (secret), GET /status?key=... (private status page), daily job 00:20 UTC builds summaries and prunes raw rows.
+- Collector: `collector/run.js`, 7-minute listen, all 11 zones recorded each run. A zone with no messages is saved as "nothing heard", never as zero ships.
+- First run saved 01:35 UTC from this PC: singapore 197 ships, cape 80, panama 3 and 1, others nothing heard.
+- Schedule: GitHub Actions in private repo billnye67/chokepoint-monitor, every 3 hours (private repos get 2,000 free minutes a month; a run uses about 8). Public repos have no minute limit, so 30-minute runs need the repo public.
+- Secrets: INGEST_SECRET, STATUS_KEY, INGEST_URL in `.dev.vars`; the first two also in Cloudflare; AISSTREAM key, INGEST_URL, INGEST_SECRET in GitHub Actions secrets.
+- Watch out: the workers.dev address contains the name part of James's email. Never write it in committed files or on the public site; the public site needs its own address.
+- Hosting test: `hosting-test/` worker tries the same listen on Cloudflare's free plan every 10 minutes and logs to table hosting_test. Remove the worker and table after the test.
+- Still to do in Phase 1: PortWatch daily pull and history load (after James emails IMF), GFW daily pull, FIRMS daily, adsb.lol.

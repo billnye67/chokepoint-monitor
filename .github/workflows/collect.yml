@@ -1,7 +1,7 @@
 name: collect ships
 on:
   schedule:
-    - cron: "17 */3 * * *"   # every 3 hours while the repo is private (free minutes are limited); every 30 minutes once public
+    - cron: "7,37 * * * *"   # every 30 minutes
   workflow_dispatch:
 concurrency:
   group: collect

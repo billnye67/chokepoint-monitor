@@ -57,3 +57,9 @@ Next: hosting test, then build and deploy the collector.
 - Watch out: the workers.dev address contains the name part of James's email. Never write it in committed files or on the public site; the public site needs its own address.
 - Hosting test: `hosting-test/` worker tries the same listen on Cloudflare's free plan every 10 minutes and logs to table hosting_test. Remove the worker and table after the test.
 - Still to do in Phase 1: PortWatch daily pull and history load (after James emails IMF), GFW daily pull, FIRMS daily, adsb.lol.
+
+## Hosting test result (2026-11-27)
+- GitHub Actions (free): run finished in 7 min 16 s and saved. Repo made public 01:56 UTC on James's say; schedule now every 30 minutes (7 and 37 past).
+- Cloudflare Worker alone (free plan): one full 7-minute listen completed, 480 messages, but used 49 ms of processing against a stated free allowance of 10 ms. It worked once; it is over the stated limit, so it could be cut off at any time. Paid plan ($5 a month) would remove that risk.
+- Decision: GitHub Actions runs the collector, Cloudflare free stores it. No cost. Test worker and its table removed.
+- Known weak spots of GitHub's timer: starts can be late or skipped at busy times, and schedules pause after 60 days with no repo activity. The status page shows good runs in the last 24 hours so gaps are visible.

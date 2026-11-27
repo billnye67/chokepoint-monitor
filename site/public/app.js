@@ -30,6 +30,8 @@
 
   function start() {
     sel.zone = (site.zones.find(z => z.state === "abnormal") || site.zones.find(z => z.state === "elevated") || site.zones[0]).id;
+    window.CM = { site, pick, fmtDay, num, esc, MONTHS };
+    document.dispatchEvent(new Event("cm-ready"));
     renderStatus(); renderMap(); renderCards(); renderChart(); renderOpen(); renderPairs(); renderLog();
     for (const id of ["f-level", "f-zone", "f-metric"]) $(id).addEventListener("change", renderLog);
     seg("seg-metric", v => { sel.metric = v; renderChart(); });

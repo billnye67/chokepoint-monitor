@@ -50,6 +50,22 @@
     </div>
   </section>
 
+  <section class="panel" id="evidence" hidden>
+    <div class="charthead">
+      <div>
+        <h2>What else changed</h2>
+        <p class="hint">Other public data on the same dates as an anomaly. It shows timing only. It is not a statement of cause.</p>
+      </div>
+      <div class="seg" id="ev-cases" role="group" aria-label="Case"></div>
+    </div>
+    <p class="evsum" id="ev-summary"></p>
+    <div class="evwrap" id="ev-rows"><div id="ev-tip" class="tip" hidden></div></div>
+    <div class="evcols">
+      <div><h3>Most-reported news stories placed here</h3><ul class="evlist" id="ev-stories"></ul></div>
+      <div><h3>Not on this panel</h3><ul class="evlist" id="ev-missing"></ul></div>
+    </div>
+  </section>
+
   <div class="two">
     <section class="panel">
       <h2>Open anomalies <span class="count" id="opencount"></span></h2>
@@ -82,5 +98,6 @@
 </footer>
 <script src="land.js"></script>
 <script src="app.js"></script>
+<script src="evidence.js"></script>
 </body>
 </html>

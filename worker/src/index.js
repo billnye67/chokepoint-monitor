@@ -244,6 +244,13 @@ export default {
         if (!authed(request, env)) return json({ error: "not allowed" }, 401);
         return json(await startCollector(env));
       }
+      if (pathname === "/publish-evidence" && request.method === "POST") {
+        if (!authed(request, env)) return json({ error: "not allowed" }, 401);
+        const body = await request.text();
+        await env.DB.prepare("INSERT INTO site_cache (key, built, body) VALUES ('evidence', ?1, ?2) ON CONFLICT(key) DO UPDATE SET built = excluded.built, body = excluded.body")
+          .bind(new Date().toISOString(), body).run();
+        return json({ published: true });
+      }
       if (pathname === "/export" && request.method === "GET") {
         if (!authed(request, env)) return json({ error: "not allowed" }, 401);
         return await exportData(env);

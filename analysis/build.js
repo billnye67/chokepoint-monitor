@@ -134,8 +134,12 @@ function analyse(x) {
       zone[m] = x;
       zone.band[m] = { lo: a.lo.slice(zone.band_from).map(r1), hi: a.hi.slice(zone.band_from).map(r1), mn: a.mn.slice(zone.band_from).map(r1), mx: a.mx.slice(zone.band_from).map(r1) };
       const openEp = a.episodes.find(e => e.end == null);
-      const state = a.lo[L] == null ? "baseline" : openEp ? (openEp.level === 2 && Math.abs(a.flag[L]) === 2 ? "abnormal" : "elevated") : "normal";
+      // The state describes the latest day only. An episode can still be open while the latest days are back inside the range
+      // (it closes after close_days inside); in that case the state is normal and inside_days says how far along the close is.
+      const outside = openEp && Math.sign(a.flag[L]) === openEp.dir;
+      const state = a.lo[L] == null ? "baseline" : outside ? (openEp.level === 2 && Math.abs(a.flag[L]) === 2 ? "abnormal" : "elevated") : "normal";
       zone.status[m] = { state, direction: openEp ? (openEp.dir < 0 ? "below" : "above") : null, since: openEp ? days[openEp.start] : null,
+                         inside_days: openEp && !outside ? openEp.quiet : 0,
                          value: r1(a.s[L]), lo: r1(a.lo[L]), hi: r1(a.hi[L]), mn: r1(a.mn[L]), mx: r1(a.mx[L]), year_ago: r1(a.s[L - 365]) };
       if (state === "abnormal" || (state === "elevated" && worst !== "abnormal") || (state === "baseline" && worst === "normal" && m === "total")) worst = state;
       for (const e of a.episodes) {
@@ -147,6 +151,7 @@ function analyse(x) {
           peak_value: r1(e.peak), peak_day: days[e.peakDay], normal_low: r1(a.lo[e.peakDay]), normal_high: r1(a.hi[e.peakDay]),
           peak_score: bound ? Math.round((e.peak - bound) / bound * 100) : null,
           latest_value: r1(a.s[e.end == null ? L : e.end]), detail: e.note,
+          inside_days: e.end == null ? e.quiet : 0,
         };
         episodes.push(ep); (epByZone[id + "|" + m] ??= []).push(ep);
       }
@@ -215,8 +220,8 @@ function analyse(x) {
     return `${z.name} is averaging ${st.value} ${what} a day, ${st.direction} its normal range of ${st.lo} to ${st.hi}, since ${fmt(st.since)}.`;
   };
   let line = abn.length + elev.length === 0
-    ? `All ${zones.length} chokepoints are inside their normal range.`
-    : `${abn.length + elev.length} of ${zones.length} chokepoints ${abn.length + elev.length === 1 ? "is" : "are"} outside ${abn.length + elev.length === 1 ? "its" : "their"} normal range (${abn.length} abnormal, ${elev.length} elevated).`;
+    ? `All ${zones.length} chokepoints inside normal range`
+    : `${abn.length + elev.length} of ${zones.length} chokepoints outside normal range`;
   const details = [...abn, ...elev].map(describe);
   const rer = pairs.filter(p => p.state === "elevated" || p.state === "abnormal");
   for (const p of rer) details.push(`Rerouting signal: ${p.falls_names.join(" and ")} down while ${p.rises_names.join(" and ")} up, since ${fmt(p.since)}.`);

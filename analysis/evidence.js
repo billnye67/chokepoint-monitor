@@ -37,7 +37,7 @@ const CASES = [
   {
     id: "bosporus-decline", zone: "bosporus", metric: "total", from: "2026-06-01", to: "2026-11-22",
     title: "Bosporus: the decline from June to November",
-    summary: "Traffic fell from about 92 ships a day in June to 48 in November. The monitor rated it elevated, never abnormal.",
+    summary: "Traffic fell from about 82 ships a day in June to 48 in November (92 in April). The monitor rated it elevated, never abnormal.",
     area: "bosporus", places: /(Ukraine|Russia|Turkey|Romania|Bulgaria|Georgia|Oceans)\s*$/, where: "Black Sea ports and waters, and the Turkish straits",
     point: { lat: 41.1, lon: 29.1 }, sanctions: /Russia|Ukraine/i, sanctionsLabel: "Russia or Ukraine",
   },

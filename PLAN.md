@@ -78,3 +78,15 @@ Next: hosting test, then build and deploy the collector.
 - Result on data to 2026-11-22: Hormuz abnormal since 2026-03-03; Suez elevated (above), Cape elevated (below), Bosporus cargo elevated (below); others normal.
 - Not built: GFW layer, FIRMS, adsb.lol, live-feed anomaly rules, alerts outside the page (email etc.), Fujairah/Yanbu data for the Hormuz pair.
 - Open problem: GitHub's timer had not started a run by itself as of 03:00 UTC (schedule on since 01:56). Runs so far were started by hand.
+
+## Evidence panel: source check (2026-11-27 ~04:00 UTC), nothing built yet
+Goal from James: for each anomaly, an evidence panel titled "what else changed" (never "cause"), grouped as conflict, sanctions and politics, weather, prices, physical signs. Test cases: Bosporus drop since June 2026, Hormuz rebound around 29 June 2026.
+- ACLED: BLOCKED for this use. EULA allows non-commercial publishing only if "transformative"; says it is not sufficient to make data "available through the Licensee's own dashboard". Needs an account. Possible only as coarse counts, not dated event lists.
+- UCDP (alternative): free, but API now needs a token requested by email from the maintainer.
+- GDELT: terms allow unlimited use and redistribution with citation and link. No key. API limit one request per 5 seconds; my test calls got 429, so not yet seen working.
+- Maritime incidents: UKMTO site is under the UK Open Government Licence (reuse allowed with credit); incident list loads by script, feed not yet found. NGA ASAM (US government) API returned 503 today, untested.
+- Sanctions: OFAC SDN list downloaded (US government, 1,580 vessel rows with IMO numbers); file has no listing dates, dates come from OFAC "recent actions". OpenSanctions offers free non-commercial use; exact licence text not confirmed.
+- Weather: Open-Meteo free for non-commercial sites, CC BY 4.0, 10,000 calls a day, tested OK for Hormuz. NOAA IBTrACS for named storms (not tested).
+- Panama water: Panama Canal Authority publishes Gatun Lake daily level CSV from 1965, current to 2026-11-25. Disclaimer says estimates for information only; no reuse terms found.
+- Prices: EIA daily Brent and Henry Hub spreadsheets, US government public domain, no key, Brent current to 2026-11-24. Shipping rates: no free source found that allows republishing (Baltic indices are licensed).
+- Timer: see below.

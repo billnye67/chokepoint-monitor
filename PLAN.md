@@ -106,3 +106,8 @@ Goal from James: for each anomaly, an evidence panel titled "what else changed" 
 - Evidence panel live for two cases (hormuz-june-rebound, bosporus-decline), built by hand with analysis/evidence.js; not on the timer.
 - Brief draft 3 in drafts/, unpublished, waiting on James's read. Corrected Black Sea conflict counts: Jun 342, Jul 1227, Aug 1146, Sep 876, Oct 711, Nov (to 22nd) 424.
 - Still down: US anti-shipping (NGA ASAM) server, 503 all night.
+
+## Findings page published (2026-11-27)
+- site/public/findings.html, "Ships come back for deals, not for quiet", by James Boger, 27 Nov 2026. Linked first in the front page nav and from the method page. Wording approved by James line by line; drafts/findings-brief.md is superseded.
+- Corrections made on the way: Bosporus June is 82 a day (92 was April), fall June to November about 40%; Cape tankers +13% Mar to Nov vs 2025, concentrated in spring (flagged 25 Mar to 4 May); Suez +6.7%.
+- Standing wording for the Bosporus everywhere: "from about 82 ships a day in June to 48 in November, a fall of about 40%".

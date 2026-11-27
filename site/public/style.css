@@ -165,3 +165,4 @@ footer p { margin: 4px 0; }
 .evbtn { background: transparent; border: 1px solid var(--line); color: #7fb2f0; border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
 .evbtn:hover { border-color: #33414f; }
 @media (max-width: 820px) { .evcols { grid-template-columns: 1fr; } }
+.prose h3 { font-size: 16px; margin: 22px 0 6px; color: var(--text); }

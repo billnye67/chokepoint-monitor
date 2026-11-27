@@ -1,0 +1,48 @@
+# Chokepoint Monitor: running plan
+
+Spec: the build spec James pasted on 2026-11-26 (phases 1 to 4; collector first).
+
+## Sources checked against current docs (2026-11-26)
+- aisstream.io: free, WebSocket, back end only, max 3 connections, no uptime guarantee, compression expected. Key needs a GitHub sign-in.
+- adsb.lol /v2/mil: works with no key today. 500 requests a day per IP without a key; free keys exist. Licence ODbL 1.0 (credit required).
+- NASA FIRMS: free MAP_KEY by email, 5,000 transactions per 10 minutes. NASA asks to be credited.
+
+## Changes to the spec
+- Ship listening window must be about 7 minutes or longer: anchored ships only report every 3 minutes and ship type arrives every 6.
+- Keep a stored ship-type table so tanker and cargo counts fill in over time.
+- Expect the military aircraft layer to be near empty in these zones (0 of 61 in any zone on first check).
+
+## Status
+- Done: project folder, zones.json, coverage test script.
+- Next: James adds the aisstream key to .dev.vars, then run the one-hour coverage test.
+- Open: where the collector runs (decide after the coverage test).
+
+## Update 2026-11-26 (evening)
+- Keys in .dev.vars: aisstream and FIRMS (both tested and working).
+- Decisions from James: 7-minute ship window plus stored ship-type table; one aircraft network only, layer not built yet; test both hosting options and recommend, free preferred, ask before any cost; Phase 2 is a flat map dashboard with analysis on top, not a globe; ship collector first, nothing else until it is deployed and saving.
+- Proposed extra layer: IMF PortWatch daily chokepoint transits (free public data, history from 2019-01-01, latest day 2026-11-22, covers Hormuz, Suez, Bab el-Mandeb, Cape, Panama, Malacca, Bosporus). Waiting on James's yes. Licence points to IMF terms; read them before use.
+- ADS-B Exchange: commercial API is price on request; RapidAPI personal plan reported at $10 a month for 10,000 requests, non-commercial, no redistribution. Not confirmed on the listing page itself.
+- One-hour coverage test started 22:45 local.
+
+## Decisions 2026-11-26 (late)
+- PortWatch is the backbone: daily transit counts drive history, normal ranges, anomalies and rerouting pairs, from 2019. Always show the date the data runs to.
+- aisstream is the "right now" layer, only in zones the coverage test shows are reliable. It builds its own history from switch-on.
+- Never compare PortWatch (ships passing per day) with aisstream (ships in the zone now). Label each.
+- Military aircraft: adsb.lol with credit. ADS-B Exchange dropped.
+- Global Fishing Watch to be added: AIS vessel presence for open-water zones, and radar detections with no matching AIS as a carefully labelled count. Needs James's free API token.
+- IMF terms read (imf.org copyright-and-terms, statistical data section): publishing and derived work allowed with "Source: International Monetary Fund, PortWatch, link" and a note of any transformation; commercial reuse needs permission; bulk automated download without permission is prohibited, so keep pulls small and email IMF-PortWatch@IMF.ORG.
+- GFW terms read: non-commercial only (CC BY-NC 4.0), credit Global Fishing Watch next to the data, no implied endorsement.
+- Hormuz check: Lloyd's List figures reported by Gulf Business give 181 vessels for March 1 to 30, 2026 against about 138 a day before; Vortexa reports tanker transits falling from nearly 40 a day to a few. Direction and scale match PortWatch; absolute levels differ by counting method.
+
+## Coverage test result (60 min from 2026-11-26 22:42 UTC, 4,303 messages, 0 reconnects)
+Distinct vessels: singapore 571, cape 142, panama-pacific 11, panama-atlantic 4, bosphorus 1; hormuz, suez-north, suez-south, bab-el-mandeb, fujairah, yanbu all 0.
+Proposed: live layer on for singapore and cape; panama marked thin; the rest marked "no live coverage" and served by PortWatch (and GFW once the key exists).
+Next: hosting test for the collector, then build and deploy it.
+
+## Global Fishing Watch check (2026-11-26)
+Key saved in `.dev.vars` as `GFW_API_KEY` (expires 2036). Script: `collector/gfw-test.js`. Result file: `coverage-gfw-2026-11-26.json`.
+- AIS presence (`public-global-presence`): data on all 30 of the last 30 days in all 11 zones, including the 7 where aisstream saw nothing. Runs to 2026-11-22 (about 4 days behind). Rows are one vessel per day with hours, name, flag and type, so distinct vessels per day can be counted.
+- SAR radar (`public-global-sar-presence`): runs to 2026-11-21/23. Satellite passes are not daily. Days with a pass out of 30: hormuz 19, suez-south 15, fujairah 15, suez-north 14, bosphorus 10, bab-el-mandeb 9, singapore 7, cape 7, yanbu 5, panama 3 each.
+- Radar detections not matched to AIS, 30 days (unmatched / all): hormuz 2303/3166, fujairah 1369/2853, suez-south 305/896, suez-north 167/858, cape 134/332, bosphorus 133/449, singapore 119/1718, bab-el-mandeb 40/129, yanbu 37/39, panama-pacific 35/238, panama-atlantic 7/194.
+- Decision proposed: GFW AIS presence = the "ships present" layer for every zone (4 days behind, labelled). SAR unmatched shown per pass day, never as a daily series, off for Panama and Yanbu (too few passes). Not yet checked: what share of unmatched detections are small boats.
+Next: hosting test, then build and deploy the collector.

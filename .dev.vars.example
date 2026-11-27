@@ -1,0 +1,8 @@
+# Copy to .dev.vars and fill in. Never commit .dev.vars.
+AISSTREAM_API_KEY=
+FIRMS_MAP_KEY=
+ADSB_LOL_KEY=
+GFW_API_KEY=
+INGEST_URL=https://your-worker.example.workers.dev/ingest
+INGEST_SECRET=
+STATUS_KEY=

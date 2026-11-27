@@ -1,0 +1,21 @@
+{
+  "zones": [
+    {"id": "hormuz", "name": "Strait of Hormuz", "kind": "chokepoint", "box": [[25.6, 55.5], [27.2, 57.3]]},
+    {"id": "suez-north", "name": "Suez Canal, north entrance (Port Said)", "kind": "chokepoint", "box": [[31.15, 32.1], [31.6, 32.7]]},
+    {"id": "suez-south", "name": "Suez Canal, south entrance (Suez)", "kind": "chokepoint", "box": [[29.6, 32.3], [30.05, 32.75]]},
+    {"id": "bab-el-mandeb", "name": "Bab el-Mandeb", "kind": "chokepoint", "box": [[12.2, 42.9], [13.3, 43.8]]},
+    {"id": "panama-atlantic", "name": "Panama Canal, Atlantic side", "kind": "chokepoint", "box": [[9.25, -80.1], [9.6, -79.7]]},
+    {"id": "panama-pacific", "name": "Panama Canal, Pacific side", "kind": "chokepoint", "box": [[8.7, -79.75], [9.0, -79.35]]},
+    {"id": "singapore", "name": "Singapore Strait", "kind": "chokepoint", "box": [[1.0, 103.4], [1.5, 104.4]]},
+    {"id": "bosphorus", "name": "Bosphorus", "kind": "chokepoint", "box": [[40.95, 28.9], [41.3, 29.25]]},
+    {"id": "fujairah", "name": "Fujairah anchorage", "kind": "bypass", "box": [[24.9, 56.3], [25.5, 56.9]]},
+    {"id": "yanbu", "name": "Yanbu", "kind": "bypass", "box": [[23.8, 37.8], [24.3, 38.4]]},
+    {"id": "cape", "name": "Cape of Good Hope", "kind": "bypass", "box": [[-35.2, 17.6], [-33.6, 20.5]]}
+  ],
+  "aircraft_margin_deg": 2.0,
+  "rerouting_pairs": [
+    {"falls": ["suez-north", "suez-south"], "rises": ["cape"]},
+    {"falls": ["hormuz"], "rises": ["fujairah", "yanbu"]},
+    {"falls": ["bab-el-mandeb"], "rises": ["cape"]}
+  ]
+}

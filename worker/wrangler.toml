@@ -1,0 +1,16 @@
+name = "chokepoint-monitor"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "chokepoint-monitor"
+database_id = "92d2d963-75c5-4dd2-aacf-1da4ea7baf10"
+
+# Daily at 00:20 UTC: build daily summaries, delete raw records older than 90 days.
+[triggers]
+crons = ["20 0 * * *"]
+
+[observability]
+enabled = true
